@@ -27,16 +27,13 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-enum PBrakeStates{released,engaged};
-enum SuspensionStates {normal, lowering, low, raising};
+enum PBrakeStates{RELEASED,ENGAGED};
+enum SuspensionStates {NORMAL, LOWERING, LOW, RAISING};
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-// Global states
-volatile uint8_t PBrake = released;
-volatile uint8_t Suspension = normal;
-volatile uint8_t Malfunction = 0;
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -64,6 +61,11 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+// Global states and variables
+volatile uint8_t PBrake = RELEASED;
+volatile uint8_t Suspension = NORMAL;
+volatile uint8_t Malfunction = 0;
+volatile uint16_t Height = 0;
 
 /* USER CODE END 0 */
 
@@ -98,6 +100,7 @@ int main(void)
   MX_ADC1_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+	HAL_ADC_Start_IT(&hadc1);
 
   /* USER CODE END 2 */
 
@@ -106,10 +109,27 @@ int main(void)
   while (1)
   {
 		HAL_GPIO_TogglePin (GPIOA, GPIO_PIN_5);  /* To show that the system is alive */
+		switch (Suspension){
+			case LOWERING:
+				HAL_GPIO_TogglePin(LoweredLed_GPIO_Port, LoweredLed_Pin);
+				break;
+			case RAISING:
+				HAL_GPIO_TogglePin(LoweredLed_GPIO_Port, LoweredLed_Pin);
+				break;
+			case NORMAL:
+				HAL_GPIO_WritePin(LoweredLed_GPIO_Port, LoweredLed_Pin, GPIO_PIN_RESET);
+				break;
+			case LOW:
+				HAL_GPIO_WritePin(LoweredLed_GPIO_Port, LoweredLed_Pin, GPIO_PIN_SET);
+				break;
+			default:
+				break;
+		}
 		if (Malfunction) {
 			HAL_GPIO_TogglePin(MalfunctionLed_GPIO_Port, MalfunctionLed_Pin);
 		}
 		HAL_Delay (250); /* Insert delay 250 ms */
+		
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -206,13 +226,13 @@ static void MX_ADC1_Init(void)
   /** Common config
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV16;
   hadc1.Init.Resolution = ADC_RESOLUTION_8B;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
@@ -235,7 +255,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_5;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_12CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -300,7 +320,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LD2_Pin|ParkLed_Pin|MalfunctionLed_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LD2_Pin|OutletValve_Pin|InletValve_Pin|ParkLed_Pin
+                          |MalfunctionLed_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LoweredLed_GPIO_Port, LoweredLed_Pin, GPIO_PIN_RESET);
@@ -311,8 +332,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LD2_Pin ParkLed_Pin MalfunctionLed_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin|ParkLed_Pin|MalfunctionLed_Pin;
+  /*Configure GPIO pins : LD2_Pin OutletValve_Pin InletValve_Pin ParkLed_Pin
+                           MalfunctionLed_Pin */
+  GPIO_InitStruct.Pin = LD2_Pin|OutletValve_Pin|InletValve_Pin|ParkLed_Pin
+                          |MalfunctionLed_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -353,24 +376,44 @@ static void MX_GPIO_Init(void)
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	switch (GPIO_Pin) {
 		case ParkBtn_Pin:
-			PBrake = engaged;
+			PBrake = ENGAGED;
 			HAL_GPIO_WritePin(ParkLed_GPIO_Port, ParkLed_Pin, GPIO_PIN_SET);
 			break;
 		case BrakeReleaseBtn_Pin:
-			PBrake = released;
-			HAL_GPIO_WritePin(ParkLed_GPIO_Port, ParkLed_Pin, GPIO_PIN_RESET);
+			if (Suspension == NORMAL) {
+				PBrake = RELEASED;
+				HAL_GPIO_WritePin(ParkLed_GPIO_Port, ParkLed_Pin, GPIO_PIN_RESET);
+			}
 			break;
 		case LowerBtn_Pin:
-			Suspension = lowering;
-			HAL_GPIO_WritePin(LoweredLed_GPIO_Port, LoweredLed_Pin, GPIO_PIN_SET);
-			break;
+			if (PBrake == ENGAGED) {
+				Suspension = LOWERING;
+				HAL_GPIO_WritePin(InletValve_GPIO_Port, InletValve_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(OutletValve_GPIO_Port, OutletValve_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(LoweredLed_GPIO_Port, LoweredLed_Pin, GPIO_PIN_SET);
+			}
+		break;
 		case RaiseBtn_Pin:
-			Suspension = raising;
-			HAL_GPIO_WritePin(LoweredLed_GPIO_Port, LoweredLed_Pin, GPIO_PIN_RESET);
+			if (Suspension != NORMAL) {
+				Suspension = RAISING;
+				HAL_GPIO_WritePin(OutletValve_GPIO_Port, OutletValve_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(InletValve_GPIO_Port, InletValve_Pin, GPIO_PIN_SET);
+			}
 			break;
 		default:
 			Malfunction = 1;
 			break;
+	}
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+	Height = HAL_ADC_GetValue(&hadc1);
+	if (Suspension == LOWERING && Height < 30) {
+			HAL_GPIO_WritePin(OutletValve_GPIO_Port, OutletValve_Pin, GPIO_PIN_RESET);
+			Suspension = LOW;
+	} else if (Suspension == RAISING && Height > 220) {
+			HAL_GPIO_WritePin(InletValve_GPIO_Port,InletValve_Pin, GPIO_PIN_RESET);
+			Suspension = NORMAL;
 	}
 }
 

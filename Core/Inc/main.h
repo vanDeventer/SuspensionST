@@ -69,6 +69,10 @@ void Error_Handler(void);
 #define USART_RX_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
+#define OutletValve_Pin GPIO_PIN_6
+#define OutletValve_GPIO_Port GPIOA
+#define InletValve_Pin GPIO_PIN_7
+#define InletValve_GPIO_Port GPIOA
 #define LoweredLed_Pin GPIO_PIN_10
 #define LoweredLed_GPIO_Port GPIOB
 #define ParkLed_Pin GPIO_PIN_8
