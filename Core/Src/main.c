@@ -47,6 +47,8 @@ ADC_HandleTypeDef hadc1;
 
 I2C_HandleTypeDef hi2c1;
 
+TIM_HandleTypeDef htim3;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -61,7 +63,7 @@ static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
-
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -73,6 +75,16 @@ volatile uint8_t PBrake = RELEASED;
 volatile uint8_t Suspension = NORMAL;
 volatile uint8_t Malfunction = 0;
 volatile uint16_t Height = 0;
+/* Captured Values */
+uint32_t uwIC2Value1 = 0;
+uint32_t uwIC2Value2 = 0;
+uint32_t uwDiffCapture = 0;
+
+/* Capture index */
+uint16_t uhCaptureIndex = 0;
+
+/* Frequency Value */
+uint32_t uwFrequency = 0;
 
 /* USER CODE END 0 */
 
@@ -83,7 +95,6 @@ volatile uint16_t Height = 0;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	HAL_StatusTypeDef ret;
 	uint8_t buf[40];
 	int16_t val;
 	float temp_c;
@@ -111,9 +122,11 @@ int main(void)
   MX_ADC1_Init();
   MX_USART2_UART_Init();
   MX_I2C1_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 	HAL_ADC_Start_IT(&hadc1);
-
+	strcpy((char*)buf, "\n Automotive Systems 2: Suspension demo\r\n");
+	HAL_UART_Transmit(&huart2, buf, strlen((char*)buf), HAL_MAX_DELAY);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -159,6 +172,8 @@ int main(void)
 				sprintf((char*)buf, "%u.%u C\r\n", ((unsigned int)temp_c/100), ((unsigned int)temp_c%100));
 			}
 		}
+		HAL_UART_Transmit(&huart2, buf, strlen((char*)buf), HAL_MAX_DELAY);
+		sprintf((char*)buf, "%u Hz\r\n", uwFrequency);
 		HAL_UART_Transmit(&huart2, buf, strlen((char*)buf), HAL_MAX_DELAY);
     /* USER CODE END WHILE */
 
@@ -348,6 +363,60 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_IC_InitTypeDef sConfigIC = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = (48000-1);
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_IC_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim3, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+  /*## Start the Input Capture in interrupt mode ##########################*/
+   if(HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_1) != HAL_OK)
+   {
+     /* Starting Error */
+     Error_Handler();
+   }
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -493,6 +562,49 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 			HAL_GPIO_WritePin(InletValve_GPIO_Port,InletValve_Pin, GPIO_PIN_RESET);
 			Suspension = NORMAL;
 	}
+}
+
+/**
+  * @brief  Conversion complete callback in non blocking mode
+  * @param  htim : hadc handle
+  * @retval None
+  */
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+  {
+    if(uhCaptureIndex == 0)
+    {
+      /* Get the 1st Input Capture value */
+      uwIC2Value1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+      uhCaptureIndex = 1;
+    }
+    else if(uhCaptureIndex == 1)
+    {
+      /* Get the 2nd Input Capture value */
+      uwIC2Value2 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+
+      /* Capture computation */
+      if (uwIC2Value2 > uwIC2Value1)
+      {
+        uwDiffCapture = (uwIC2Value2 - uwIC2Value1);
+      }
+      else if (uwIC2Value2 < uwIC2Value1)
+      {
+        /* 0xFFFF is max TIM1_CCRx value */
+        uwDiffCapture = ((0xFFFF - uwIC2Value1) + uwIC2Value2) + 1;
+      }
+      else
+      {
+        /* If capture values are equal, we have reached the limit of frequency
+           measures */
+        Error_Handler();
+      }
+      /* Frequency computation: 1000* (1/cycle in ms) */
+			uwFrequency = 1000 / uwDiffCapture;
+      uhCaptureIndex = 0;
+    }
+  }
 }
 
 /* USER CODE END 4 */

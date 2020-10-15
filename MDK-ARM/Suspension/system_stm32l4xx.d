@@ -31,5 +31,7 @@ suspension\system_stm32l4xx.o: ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal
 suspension\system_stm32l4xx.o: ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_i2c_ex.h
 suspension\system_stm32l4xx.o: ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_pwr.h
 suspension\system_stm32l4xx.o: ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_pwr_ex.h
+suspension\system_stm32l4xx.o: ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_tim.h
+suspension\system_stm32l4xx.o: ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_tim_ex.h
 suspension\system_stm32l4xx.o: ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_uart.h
 suspension\system_stm32l4xx.o: ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_uart_ex.h
