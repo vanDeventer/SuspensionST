@@ -81,6 +81,8 @@ void Error_Handler(void);
 #define HeightSensorC6_GPIO_Port GPIOC
 #define Compressor_Pin GPIO_PIN_7
 #define Compressor_GPIO_Port GPIOC
+#define ParkingServo_Pin GPIO_PIN_8
+#define ParkingServo_GPIO_Port GPIOC
 #define ParkLed_Pin GPIO_PIN_8
 #define ParkLed_GPIO_Port GPIOA
 #define MalfunctionLed_Pin GPIO_PIN_9

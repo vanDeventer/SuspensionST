@@ -124,6 +124,7 @@ int main(void)
   MX_I2C1_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
 	HAL_ADC_Start_IT(&hadc1);
 	strcpy((char*)buf, "\n Automotive Systems 2: Suspension demo\r\n");
 	HAL_UART_Transmit(&huart2, buf, strlen((char*)buf), HAL_MAX_DELAY);
@@ -382,9 +383,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = (48000-1);
+  htim3.Init.Prescaler = (4800-1);
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 50;
+  htim3.Init.Period = 200-1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_IC_Init(&htim3) != HAL_OK)
@@ -410,10 +411,15 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 25;
+  sConfigOC.Pulse = 100-1;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.Pulse = 15-1;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -539,11 +545,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 		case ParkBtn_Pin:
 			PBrake = ENGAGED;
 			HAL_GPIO_WritePin(ParkLed_GPIO_Port, ParkLed_Pin, GPIO_PIN_SET);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 22);
+			
 			break;
 		case BrakeReleaseBtn_Pin:
 			if (Suspension == NORMAL) {
 				PBrake = RELEASED;
 				HAL_GPIO_WritePin(ParkLed_GPIO_Port, ParkLed_Pin, GPIO_PIN_RESET);
+				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 15);
 			}
 			break;
 		case LowerBtn_Pin:
