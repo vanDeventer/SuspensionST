@@ -50,6 +50,8 @@ extern "C" {
 
 /* USER CODE END EM */
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -77,6 +79,8 @@ void Error_Handler(void);
 #define LoweredLed_GPIO_Port GPIOB
 #define HeightSensorC6_Pin GPIO_PIN_6
 #define HeightSensorC6_GPIO_Port GPIOC
+#define Compressor_Pin GPIO_PIN_7
+#define Compressor_GPIO_Port GPIOC
 #define ParkLed_Pin GPIO_PIN_8
 #define ParkLed_GPIO_Port GPIOA
 #define MalfunctionLed_Pin GPIO_PIN_9
